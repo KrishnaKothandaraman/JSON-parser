@@ -206,3 +206,6 @@ integer =  token int
 symbol :: String -> Parser String
 symbol xs =  token (string xs)
 
+stringLiteral :: Parser String
+stringLiteral = do x <- token (many alphanum)
+                   return x
