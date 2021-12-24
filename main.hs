@@ -14,65 +14,89 @@ data JsonValue = JsonNull
                  deriving (Eq, Show)
 
 jsonString :: Parser JsonValue
-jsonString = do char '"'
+jsonString = do token $ char '"'
                 x <- many (sat (/='"'))
-                char '"'
+                token $ char '"'
                 return (JsonString x)
 
+jsonFloat :: Parser Float 
+jsonFloat =  do space
+                x <- many1 digit
+                char '.'
+                y <- many1 digit
+                return ((read :: String -> Float) (x++"."++y))
+
+jsonInteger :: Parser Integer
+jsonInteger = do x <- many1 digit
+                 return ((read :: String -> Integer) x)
 
 jsonNumber :: Parser JsonValue
-jsonNumber = (do x <- many digit
-                 char '.'
-                 y <- many digit
-                 return (JsonFloat $ (read :: String -> Float) (x++"."++y))) 
-                 +++ 
-                 (do x <- many digit
-                     case x of 
-                         "" -> failure
-                         _  -> return (JsonInteger $ (read :: String -> Integer) x))
+jsonNumber = (do space
+                 sign <- char '-'
+                 x <- jsonFloat
+                 return (JsonFloat $ (-x))
+                 ) 
+                +++ 
+             (do space
+                 x <- jsonFloat
+                 return (JsonFloat $ x)
+                ) 
+                +++ 
+             (do space
+                 sign <- char '-'
+                 x <- jsonInteger 
+                 return (JsonInteger $ (-x)))
+                +++ 
+             (do space
+                 x <- jsonInteger 
+                 return (JsonInteger $ x))
 
 jsonBool :: Parser JsonValue
-jsonBool = (do x <- string "true"
+jsonBool = (do x <- token $ string "true"
                return (JsonBool True)) +++
-           (do x <- string "false"
+           (do x <- token $ string "false"
                return (JsonBool False)
            )
 
 jsonNull :: Parser JsonValue
-jsonNull = do x <- string "null"
+jsonNull = do x <- token $ string "null"
               return (JsonNull)
 
 jsonArrayElement :: Parser JsonValue
-jsonArrayElement = do char ','
-                      x <- jsonValue
+jsonArrayElement = do token $ char ','
+                      x <- token $ jsonValue
                       return x
 
 jsonArray :: Parser JsonValue
-jsonArray = do char '['
-               x <- many jsonValue
-               y <- many jsonArrayElement
-               char ']'
+jsonArray = do token $ char '['
+               x <- token $ many jsonValue
+               y <- token $ many jsonArrayElement
+               token $ char ']'
                return (JsonArray (x++y))
 
 pairs :: Parser (String, JsonValue)
 pairs = do char '"' 
-           key <- many1 alphanum
+           key <- token $ many1 $ sat (/='"')
            token (char '"')
            token (char ':')
-           value <- jsonValue
+           value <- token $ jsonValue
            token $ many (char ',')
            return (key, value)
 
 jsonObject :: Parser JsonValue
-jsonObject = do char '{'
-                space
-                x <- many pairs
-                space
-                char '}'
+jsonObject = do token $ char '{'
+                x <- token $ many pairs
+                token $ char '}'
                 return (JsonObject x) 
 
 jsonValue :: Parser JsonValue
 jsonValue = jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray <|> jsonObject
 
-main :: IO()
-main = undefined
+parseJson :: FilePath -> Parser a -> IO ([(a,String)])
+parseJson fileName parser = do inp <- readFile fileName
+                               return (parse parser inp)
+
+
+main :: IO ()
+main = do x <- readFile "json.txt"
+          putStrLn x
