@@ -206,6 +206,16 @@ integer =  token int
 symbol :: String -> Parser String
 symbol xs =  token (string xs)
 
+escapeChar :: Parser Char
+escapeChar = ('"' <$ string "\\\"") +++
+             ('\\' <$ string "\\\\") +++
+             ('/' <$ string "\\/") +++
+             ('\b' <$ string "\\b") +++
+             ('\f' <$ string "\\f") +++
+             ('\r' <$ string "\\r") +++
+             ('\t' <$ string "\\t") +++
+             ('\n' <$ string "\\n")
+
 stringLiteral :: Parser String
-stringLiteral = do x <- token (many alphanum)
+stringLiteral = do x <- token (many (alphanum +++ escapeChar))
                    return x

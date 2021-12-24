@@ -2,8 +2,8 @@ module Main where
 import Parsing
 import Control.Applicative hiding(many)
 
---TODO: add support for spaces
---TODO: add support for escaped characters
+--TODO: add support for unicode
+--TODO: create shell command to run file
 data JsonValue = JsonNull
                  | JsonBool Bool 
                  | JsonInteger Integer 
@@ -20,8 +20,7 @@ jsonString = do token $ char '"'
                 return (JsonString x)
 
 jsonFloat :: Parser Float 
-jsonFloat =  do space
-                x <- many1 digit
+jsonFloat =  do x <- many1 digit
                 char '.'
                 y <- many1 digit
                 return ((read :: String -> Float) (x++"."++y))
