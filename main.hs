@@ -92,9 +92,10 @@ jsonObject = do token $ char '{'
 jsonValue :: Parser JsonValue
 jsonValue = jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray <|> jsonObject
 
-parseJson :: FilePath -> Parser a -> IO ([(a,String)])
+parseJson :: Show a => FilePath -> Parser a -> IO ()
 parseJson fileName parser = do inp <- readFile fileName
-                               return (parse parser inp)
+                               writeFile "output.txt" (show $ fst $ head $ parse parser inp)
+                               return ()
 
 
 main :: IO ()
