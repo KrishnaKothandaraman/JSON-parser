@@ -91,12 +91,45 @@ jsonObject = do token $ char '{'
 jsonValue :: Parser JsonValue
 jsonValue = jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray <|> jsonObject
 
-parseJson :: Show a => FilePath -> Parser a -> IO ()
+parseJson :: Show a => FilePath -> Parser a -> IO a
 parseJson fileName parser = do inp <- readFile fileName
-                               writeFile "output.txt" (show $ fst $ head $ parse parser inp)
-                               return ()
+                               return (fst $ head $ parse parser inp)
 
+printJsonNull :: Int -> String
+printJsonNull tabs = (replicate tabs '\t') ++ "null"
+
+printJsonBool :: Bool -> Int -> String
+printJsonBool (True) tabs = (replicate tabs '\t') ++ "true"
+printJsonBool (False) tabs = (replicate tabs '\t') ++ "false"
+
+printJsonInteger :: Integer -> Int -> String
+printJsonInteger x tabs = (replicate tabs '\t') ++ show x
+
+printJsonFloat :: Float -> Int -> String
+printJsonFloat f tabs = (replicate tabs '\t') ++ show f
+
+printJsonArray :: [JsonValue] -> Int -> String
+printJsonArray [] _ = []
+printJsonArray [x] tabs = (replicate tabs '\t') ++ printJsonVal x tabs ++ "\n"
+printJsonArray (x:xs) tabs  = (replicate tabs '\t') ++ (printJsonVal x tabs) ++ ",\n" ++ (printJsonArray xs tabs)
+
+printJsonObject :: [(String, JsonValue)] -> Int -> String
+printJsonObject [] _ = "\n"
+printJsonObject [x] tabs = (replicate tabs '\t') ++ ("\"" ++ (fst x) ++ "\"") ++ " : " ++ (printJsonVal (snd x) 0) ++ "\n"
+printJsonObject (x:xs) tabs = (replicate tabs '\t') ++ ("\"" ++ (fst x) ++ "\"") ++ " : " ++ (printJsonVal (snd x) 0) ++ ",\n" ++ (printJsonObject xs tabs)
+
+printJsonVal :: JsonValue -> Int -> String
+printJsonVal (JsonNull) tabs = printJsonNull tabs   
+printJsonVal (JsonBool t) tabs = printJsonBool t tabs   
+printJsonVal (JsonInteger x) tabs = printJsonInteger x tabs  
+printJsonVal (JsonFloat f) tabs = printJsonFloat f tabs   
+printJsonVal (JsonString x) tabs = (replicate tabs '\t') ++ "\"" ++ x ++ "\""
+printJsonVal (JsonArray x) tabs = "[\n" ++ (printJsonArray x (tabs+1)) ++ (replicate (tabs+1) '\t') ++ "]"  
+printJsonVal (JsonObject x) tabs = (replicate tabs '\t') ++ "{\n" ++ (printJsonObject x (tabs+1)) ++ (replicate tabs '\t') ++ "}" 
+
+dumpParsedJson :: FilePath -> FilePath -> Parser JsonValue -> IO ()
+dumpParsedJson inputFile outputFile parser = do inp <- readFile inputFile
+                                                writeFile outputFile (printJsonVal (fst $ head$ parse parser inp) 0)
 
 main :: IO ()
-main = do x <- readFile "json.txt"
-          putStrLn x
+main = undefined
