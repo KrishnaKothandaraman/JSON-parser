@@ -1,5 +1,6 @@
 module Main where
 import Parsing
+import System.FilePath.Posix
 import Control.Applicative hiding(many)
 
 --TODO: add support for unicode
@@ -96,17 +97,17 @@ parseJson fileName parser = do inp <- readFile fileName
                                return (fst $ head $ parse parser inp)
 
 printJsonNull :: Int -> String
-printJsonNull tabs = (replicate tabs '\t') ++ "null"
+printJsonNull tabs = "null"
 
 printJsonBool :: Bool -> Int -> String
-printJsonBool (True) tabs = (replicate tabs '\t') ++ "true"
-printJsonBool (False) tabs = (replicate tabs '\t') ++ "false"
+printJsonBool (True) tabs = "true"
+printJsonBool (False) tabs = "false"
 
 printJsonInteger :: Integer -> Int -> String
-printJsonInteger x tabs = (replicate tabs '\t') ++ show x
+printJsonInteger x tabs = show x
 
 printJsonFloat :: Float -> Int -> String
-printJsonFloat f tabs = (replicate tabs '\t') ++ show f
+printJsonFloat f tabs = show f
 
 printJsonArray :: [JsonValue] -> Int -> String
 printJsonArray [] _ = []
@@ -115,21 +116,21 @@ printJsonArray (x:xs) tabs  = (replicate tabs '\t') ++ (printJsonVal x tabs) ++ 
 
 printJsonObject :: [(String, JsonValue)] -> Int -> String
 printJsonObject [] _ = "\n"
-printJsonObject [x] tabs = (replicate tabs '\t') ++ ("\"" ++ (fst x) ++ "\"") ++ " : " ++ (printJsonVal (snd x) 0) ++ "\n"
-printJsonObject (x:xs) tabs = (replicate tabs '\t') ++ ("\"" ++ (fst x) ++ "\"") ++ " : " ++ (printJsonVal (snd x) 0) ++ ",\n" ++ (printJsonObject xs tabs)
+printJsonObject [x] tabs = (replicate tabs '\t') ++ ("\"" ++ (fst x) ++ "\"") ++ " : " ++ (printJsonVal (snd x) tabs) ++ "\n"
+printJsonObject (x:xs) tabs = (replicate tabs '\t') ++ ("\"" ++ (fst x) ++ "\"") ++ " : " ++ (printJsonVal (snd x) tabs) ++ ",\n" ++ (printJsonObject xs (tabs))
 
 printJsonVal :: JsonValue -> Int -> String
 printJsonVal (JsonNull) tabs = printJsonNull tabs   
 printJsonVal (JsonBool t) tabs = printJsonBool t tabs   
 printJsonVal (JsonInteger x) tabs = printJsonInteger x tabs  
 printJsonVal (JsonFloat f) tabs = printJsonFloat f tabs   
-printJsonVal (JsonString x) tabs = (replicate tabs '\t') ++ "\"" ++ x ++ "\""
+printJsonVal (JsonString x) tabs = "\"" ++ x ++ "\""
 printJsonVal (JsonArray x) tabs = "[\n" ++ (printJsonArray x (tabs+1)) ++ (replicate (tabs+1) '\t') ++ "]"  
-printJsonVal (JsonObject x) tabs = (replicate tabs '\t') ++ "{\n" ++ (printJsonObject x (tabs+1)) ++ (replicate tabs '\t') ++ "}" 
+printJsonVal (JsonObject x) tabs = "{\n" ++ (printJsonObject x (tabs+1)) ++ (replicate tabs '\t') ++ "}" 
 
-dumpParsedJson :: FilePath -> FilePath -> Parser JsonValue -> IO ()
-dumpParsedJson inputFile outputFile parser = do inp <- readFile inputFile
-                                                writeFile outputFile (printJsonVal (fst $ head$ parse parser inp) 0)
+dumpParsedJson :: FilePath -> Parser JsonValue -> IO ()
+dumpParsedJson inputFile parser = do inp <- readFile inputFile
+                                     writeFile ((takeBaseName inputFile) ++ "_parsed" ++ ".json") (printJsonVal (fst $ head$ parse parser inp) 0)
 
 main :: IO ()
 main = undefined
