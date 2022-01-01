@@ -8,7 +8,7 @@ import Control.Applicative hiding(many)
 data JsonValue = JsonNull
                  | JsonBool Bool 
                  | JsonInteger Integer 
-                 | JsonFloat Float 
+                 | JsonFloat Double 
                  | JsonString String
                  | JsonArray [JsonValue]
                  | JsonObject [(String, JsonValue)]
@@ -20,7 +20,7 @@ jsonString = do token $ char '"'
                 token $ char '"'
                 return (JsonString x)
 
-jsonFloat :: Parser Float 
+jsonFloat :: Parser Double 
 jsonFloat =  do x <- (do x  <- nonZeroDigit  
                          xs <- many digit
                          return (x:xs)) 
@@ -29,15 +29,21 @@ jsonFloat =  do x <- (do x  <- nonZeroDigit
                          return [x])
                 char '.'
                 y <- many1 digit
-                return ((read :: String -> Float) (x++"."++y))
+                return ((read :: String -> Double) (x++"."++y))
 
+-- either non zero digit followed by many digits or just a zero
 jsonInteger :: Parser Integer
-jsonInteger = do x <- (do x <-  nonZeroDigit  
+jsonInteger = do x <- (do x  <-  nonZeroDigit  
                           xs <- many digit
                           return (x:xs)) 
                       +++
-                      (do x  <- char '0'
-                          return [x])
+                      (do x  <- many1 (char '0')
+                          case (length x > 1) of
+                              True  -> failure
+                              False -> (do xs <- many digit 
+                                           case xs of
+                                              ""   -> return x
+                                              _    -> failure))
                  return ((read :: String -> Integer) (x))
 
 jsonNumber :: Parser JsonValue
@@ -116,7 +122,7 @@ printJsonBool (False) tabs = "false"
 printJsonInteger :: Integer -> Int -> String
 printJsonInteger x tabs = show x
 
-printJsonFloat :: Float -> Int -> String
+printJsonFloat :: Double -> Int -> String
 printJsonFloat f tabs = show f
 
 printJsonArray :: [JsonValue] -> Int -> String
