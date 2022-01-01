@@ -21,14 +21,24 @@ jsonString = do token $ char '"'
                 return (JsonString x)
 
 jsonFloat :: Parser Float 
-jsonFloat =  do x <- many1 digit
+jsonFloat =  do x <- (do x  <- nonZeroDigit  
+                         xs <- many digit
+                         return (x:xs)) 
+                     +++
+                     (do x  <- char '0'
+                         return [x])
                 char '.'
                 y <- many1 digit
                 return ((read :: String -> Float) (x++"."++y))
 
 jsonInteger :: Parser Integer
-jsonInteger = do x <- many1 digit
-                 return ((read :: String -> Integer) x)
+jsonInteger = do x <- (do x <-  nonZeroDigit  
+                          xs <- many digit
+                          return (x:xs)) 
+                      +++
+                      (do x  <- char '0'
+                          return [x])
+                 return ((read :: String -> Integer) (x))
 
 jsonNumber :: Parser JsonValue
 jsonNumber = (do space

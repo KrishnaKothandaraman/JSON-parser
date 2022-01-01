@@ -100,6 +100,9 @@ sat p = do c <- item
 digit :: Parser Char
 digit = sat isDigit
 
+nonZeroDigit :: Parser Char
+nonZeroDigit = sat (\x -> x `elem` ['1','2','3','4','5','6','7','8','9'])
+
 lower :: Parser Char
 lower =  sat isLower
 
