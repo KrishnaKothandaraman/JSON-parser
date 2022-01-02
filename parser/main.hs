@@ -3,6 +3,7 @@ import Parsing
 import System.FilePath.Posix
 import Control.Applicative hiding(many)
 
+--TODO: add support for escaped characters
 --TODO: add support for unicode
 --TODO: create shell command to run file
 data JsonValue = JsonNull
@@ -16,7 +17,7 @@ data JsonValue = JsonNull
 
 jsonString :: Parser JsonValue
 jsonString = do token $ char '"'
-                x <- many (sat (/='"'))
+                x <- stringLiteral
                 token $ char '"'
                 return (JsonString x)
 
@@ -45,6 +46,7 @@ jsonInteger = do x <- (do x  <-  nonZeroDigit
                                               ""   -> return x
                                               _    -> failure))
                  return ((read :: String -> Integer) (x))
+
 
 jsonNumber :: Parser JsonValue
 jsonNumber = (do space
@@ -144,9 +146,10 @@ printJsonVal (JsonString x) tabs = "\"" ++ x ++ "\""
 printJsonVal (JsonArray x) tabs = "[\n" ++ (printJsonArray x (tabs+1)) ++ (replicate (tabs+1) '\t') ++ "]"  
 printJsonVal (JsonObject x) tabs = "{\n" ++ (printJsonObject x (tabs+1)) ++ (replicate tabs '\t') ++ "}" 
 
-dumpParsedJson :: FilePath -> Parser JsonValue -> IO ()
-dumpParsedJson inputFile parser = do inp <- readFile inputFile
-                                     writeFile ((takeBaseName inputFile) ++ "_parsed" ++ ".json") (printJsonVal (fst $ head$ parse parser inp) 0)
+dumpParsedJson :: FilePath -> IO ()
+dumpParsedJson inputFile = do inp <- readFile inputFile
+                              writeFile (("../parsed_output/" ++ takeBaseName inputFile) ++ "_parsed" ++ ".json") (printJsonVal (fst $ head$ parse jsonValue inp) 0)
+
 
 main :: IO ()
 main = undefined

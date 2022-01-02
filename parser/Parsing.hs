@@ -1,6 +1,6 @@
 -- Functional parsing library from chapter 8 of Programming in Haskell,
 -- Graham Hutton, Cambridge University Press, 2007.
--- Modified by Bruno Oliveira
+-- Modified by Bruno Oliveira and Krishna Kothandaraman
 
 module Parsing where
  
@@ -210,15 +210,15 @@ symbol :: String -> Parser String
 symbol xs =  token (string xs)
 
 escapeChar :: Parser Char
-escapeChar = ('"' <$ string "\\\"") +++
+escapeChar = ('"'  <$ string "\\\"") +++
              ('\\' <$ string "\\\\") +++
-             ('/' <$ string "\\/") +++
+             ('/'  <$ string "\\/") +++
              ('\b' <$ string "\\b") +++
              ('\f' <$ string "\\f") +++
              ('\r' <$ string "\\r") +++
              ('\t' <$ string "\\t") +++
-             ('\n' <$ string "\\n")
-
+             ('\n' <$ string "\\n") 
+             
 stringLiteral :: Parser String
-stringLiteral = do x <- token (many (alphanum +++ escapeChar))
+stringLiteral = do x <- (many ((sat (((&&) <$> (/= '"') <*> (/= '\\')))) +++ escapeChar))
                    return x
