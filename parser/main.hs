@@ -17,7 +17,7 @@ data JsonValue = JsonNull
 
 jsonString :: Parser JsonValue
 jsonString = do token $ char '"'
-                x <- stringLiteral
+                x <- many $ sat (/='"')
                 token $ char '"'
                 return (JsonString x)
 
@@ -150,6 +150,9 @@ dumpParsedJson :: FilePath -> IO ()
 dumpParsedJson inputFile = do inp <- readFile inputFile
                               writeFile (("../parsed_output/" ++ takeBaseName inputFile) ++ "_parsed" ++ ".json") (printJsonVal (fst $ head$ parse jsonValue inp) 0)
 
+getFromFile :: FilePath -> IO String
+getFromFile inputFile = do inp <- readFile inputFile
+                           return inp
 
 main :: IO ()
 main = undefined
