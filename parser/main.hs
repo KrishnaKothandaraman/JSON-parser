@@ -2,14 +2,14 @@ module Main where
 import Parsing
 import System.FilePath.Posix
 import Control.Applicative hiding(many)
+import Text.Read(readMaybe)
 
 --TODO: add support for escaped characters
 --TODO: add support for unicode
 --TODO: create shell command to run file
 data JsonValue = JsonNull
                  | JsonBool Bool 
-                 | JsonInteger Integer 
-                 | JsonFloat Double 
+                 | JsonNumber Double 
                  | JsonString String
                  | JsonArray [JsonValue]
                  | JsonObject [(String, JsonValue)]
@@ -21,53 +21,108 @@ jsonString = do token $ char '"'
                 token $ char '"'
                 return (JsonString x)
 
-jsonFloat :: Parser Double 
-jsonFloat =  do x <- (do x  <- nonZeroDigit  
-                         xs <- many digit
-                         return (x:xs)) 
-                     +++
-                     (do x  <- char '0'
-                         return [x])
-                char '.'
-                y <- many1 digit
-                return ((read :: String -> Double) (x++"."++y))
+-- jsonFloat :: Parser Double 
+-- jsonFloat =  do x <- (do x  <- nonZeroDigit  
+--                          xs <- many digit
+--                          return (x:xs)) 
+--                      +++
+--                      (do x  <- char '0'
+--                          return [x])
+--                 char '.'
+--                 y <- many1 digit
+--                 return ((read :: String -> Double) (x++"."++y))
 
--- either non zero digit followed by many digits or just a zero
-jsonInteger :: Parser Integer
-jsonInteger = do x <- (do x  <-  nonZeroDigit  
-                          xs <- many digit
-                          return (x:xs)) 
-                      +++
-                      (do x  <- many1 (char '0')
-                          case (length x > 1) of
-                              True  -> failure
-                              False -> (do xs <- many digit 
-                                           case xs of
-                                              ""   -> return x
-                                              _    -> failure))
-                 return ((read :: String -> Integer) (x))
+-- -- either non zero digit followed by many digits or just a zero
+-- jsonInteger :: Parser Integer
+-- jsonInteger = do x <- (do x  <-  nonZeroDigit  
+--                           xs <- many digit
+--                           return (x:xs)) 
+--                       +++
+--                       (do x  <- many1 (char '0')
+--                           case (length x > 1) of
+--                               True  -> failure
+--                               False -> (do xs <- many digit 
+--                                            case xs of
+--                                               ""   -> return x
+--                                               _    -> failure))
+--                  return ((read :: String -> Integer) (x))
+
+-- parseSign :: Parser String
+-- parseSign = do x <- char '+' <|> char '-'
+--                return [x]
+
+-- jsonNumber :: Parser JsonValue
+-- jsonNumber = (do space
+--                  sign <- (((-1) <$ char '-') <|> return 1)
+--                  x    <- (jsonFloat
+--                           <|>
+--                           (do x <- jsonInteger
+--                               return $ fromIntegral x)
+--                          )
+--                  e    <- (char 'e' <|> char 'E')
+--                  n    <- (parseSign <|> (many digit))
+--                  y    <- many digit
+--                  return $ JsonFloat ((*) sign $ (read :: String -> Double) $ (show x) ++ [e] ++ n ++ y)
+--                  )
+--                 <|>
+--              (do space
+--                  sign <- char '-'
+--                  x <- jsonFloat
+--                  return (JsonFloat $ (-x))
+--                  ) 
+--                 <|> 
+--              (do space
+--                  x <- jsonFloat
+--                  return (JsonFloat $ x)
+--                 ) 
+--                 <|> 
+--              (do space
+--                  sign <- char '-'
+--                  x <- jsonInteger 
+--                  return (JsonInteger $ (-x)))
+--                 <|> 
+--              (do space
+--                  x <- jsonInteger 
+--                  return (JsonInteger $ x))
 
 
+-- author      : https://github.com/tsoding/haskell-json/blob/master/Main.hs
+-- modified by : Krishna Kothandaraman
+{-
+See page 12 of
+http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
+-}
+-- | Parser for doubles
+doubleLiteral :: Parser (Maybe Double)
+doubleLiteral =
+  doubleFromParts
+    <$> (minus <|> pure 1)
+    <*> (readMaybe <$> digits)
+    <*> ((readMaybe <$> (('0':) <$> ((:) <$> char '.' <*> digits))) <|> pure (Just 0))
+    <*> ((e *> ((*) <$> (plus <|> minus <|> pure 1) <*> (read <$> digits))) <|> pure 0)
+  where
+    digits = many digit
+    minus = (-1) <$ char '-'
+    plus = 1 <$ char '+'
+    e = char 'e' <|> char 'E'
+
+-- | Build a Double from its parts (sign, integral part, decimal part, exponent)
+doubleFromParts :: Integer  -- sign
+                -> Maybe Integer  -- integral part
+                -> Maybe Double   -- decimal part
+                -> Integer  -- exponent
+                -> Maybe Double
+doubleFromParts sign (Just int) (Just dec) expo =
+  Just $ fromIntegral sign * (fromIntegral int + dec) * (10 ^^ expo)
+doubleFromParts _ _ _ _ = Nothing
+
+-- -- | Parser for json number values
 jsonNumber :: Parser JsonValue
-jsonNumber = (do space
-                 sign <- char '-'
-                 x <- jsonFloat
-                 return (JsonFloat $ (-x))
-                 ) 
-                +++ 
-             (do space
-                 x <- jsonFloat
-                 return (JsonFloat $ x)
-                ) 
-                +++ 
-             (do space
-                 sign <- char '-'
-                 x <- jsonInteger 
-                 return (JsonInteger $ (-x)))
-                +++ 
-             (do space
-                 x <- jsonInteger 
-                 return (JsonInteger $ x))
+jsonNumber = do x <- doubleLiteral
+                case x of
+                    (Just n) -> return $ JsonNumber n
+                    _        -> failure
+
 
 jsonBool :: Parser JsonValue
 jsonBool = (do x <- token $ string "true"
@@ -121,11 +176,8 @@ printJsonBool :: Bool -> Int -> String
 printJsonBool (True) tabs = "true"
 printJsonBool (False) tabs = "false"
 
-printJsonInteger :: Integer -> Int -> String
-printJsonInteger x tabs = show x
-
-printJsonFloat :: Double -> Int -> String
-printJsonFloat f tabs = show f
+printJsonNumber :: Double -> Int -> String
+printJsonNumber f tabs = show f
 
 printJsonArray :: [JsonValue] -> Int -> String
 printJsonArray [] _ = []
@@ -140,8 +192,7 @@ printJsonObject (x:xs) tabs = (replicate tabs '\t') ++ ("\"" ++ (fst x) ++ "\"")
 printJsonVal :: JsonValue -> Int -> String
 printJsonVal (JsonNull) tabs = printJsonNull tabs   
 printJsonVal (JsonBool t) tabs = printJsonBool t tabs   
-printJsonVal (JsonInteger x) tabs = printJsonInteger x tabs  
-printJsonVal (JsonFloat f) tabs = printJsonFloat f tabs   
+printJsonVal (JsonNumber x) tabs = printJsonNumber x tabs  
 printJsonVal (JsonString x) tabs = "\"" ++ x ++ "\""
 printJsonVal (JsonArray x) tabs = "[\n" ++ (printJsonArray x (tabs+1)) ++ (replicate (tabs+1) '\t') ++ "]"  
 printJsonVal (JsonObject x) tabs = "{\n" ++ (printJsonObject x (tabs+1)) ++ (replicate tabs '\t') ++ "}" 
@@ -153,6 +204,11 @@ dumpParsedJson inputFile = do inp <- readFile inputFile
 getFromFile :: FilePath -> IO String
 getFromFile inputFile = do inp <- readFile inputFile
                            return inp
+
+putToFile :: FilePath -> String -> IO ()
+putToFile fpath str = do writeFile fpath str
+                         return ()
+
 
 main :: IO ()
 main = undefined
