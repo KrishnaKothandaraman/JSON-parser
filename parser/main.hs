@@ -5,6 +5,7 @@ import Data.Char hiding(isControl)
 import Numeric
 import Control.Applicative hiding(many)
 import Text.Read(readMaybe)
+import System.Directory
 
 --TODO: add support for escaped characters
 --TODO: add support for unicode
@@ -22,71 +23,6 @@ jsonString = do token $ char '"'
                 x <- stringLiteral
                 token $ char '"'
                 return (JsonString x)
-
--- jsonFloat :: Parser Double 
--- jsonFloat =  do x <- (do x  <- nonZeroDigit  
---                          xs <- many digit
---                          return (x:xs)) 
---                      +++
---                      (do x  <- char '0'
---                          return [x])
---                 char '.'
---                 y <- many1 digit
---                 return ((read :: String -> Double) (x++"."++y))
-
--- -- either non zero digit followed by many digits or just a zero
--- jsonInteger :: Parser Integer
--- jsonInteger = do x <- (do x  <-  nonZeroDigit  
---                           xs <- many digit
---                           return (x:xs)) 
---                       +++
---                       (do x  <- many1 (char '0')
---                           case (length x > 1) of
---                               True  -> failure
---                               False -> (do xs <- many digit 
---                                            case xs of
---                                               ""   -> return x
---                                               _    -> failure))
---                  return ((read :: String -> Integer) (x))
-
--- parseSign :: Parser String
--- parseSign = do x <- char '+' <|> char '-'
---                return [x]
-
--- jsonNumber :: Parser JsonValue
--- jsonNumber = (do space
---                  sign <- (((-1) <$ char '-') <|> return 1)
---                  x    <- (jsonFloat
---                           <|>
---                           (do x <- jsonInteger
---                               return $ fromIntegral x)
---                          )
---                  e    <- (char 'e' <|> char 'E')
---                  n    <- (parseSign <|> (many digit))
---                  y    <- many digit
---                  return $ JsonFloat ((*) sign $ (read :: String -> Double) $ (show x) ++ [e] ++ n ++ y)
---                  )
---                 <|>
---              (do space
---                  sign <- char '-'
---                  x <- jsonFloat
---                  return (JsonFloat $ (-x))
---                  ) 
---                 <|> 
---              (do space
---                  x <- jsonFloat
---                  return (JsonFloat $ x)
---                 ) 
---                 <|> 
---              (do space
---                  sign <- char '-'
---                  x <- jsonInteger 
---                  return (JsonInteger $ (-x)))
---                 <|> 
---              (do space
---                  x <- jsonInteger 
---                  return (JsonInteger $ x))
-
 
 -- author      : https://github.com/tsoding/haskell-json/blob/master/Main.hs
 -- modified by : Krishna Kothandaraman
@@ -240,6 +176,21 @@ putToFile :: FilePath -> String -> IO ()
 putToFile fpath str = do writeFile fpath str
                          return ()
 
+processTests :: [FilePath] -> IO ()
+processTests []     = return ()
+processTests (x:xs) = do putStrLn $ "[Parsing file]: " ++ x
+                         dumpParsedJson ("../test_cases/" ++ x)
+                         processTests xs
 
+
+getTestCases :: IO [FilePath]
+getTestCases = do putStrLn "[Running Tests]"
+                  x <- listDirectory "../test_cases"
+                  return x
+
+runTestCases :: IO ()
+runTestCases  = do x <- getTestCases
+                   processTests x
+                  
 main :: IO ()
 main = undefined
