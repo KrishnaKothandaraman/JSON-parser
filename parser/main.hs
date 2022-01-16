@@ -1,6 +1,8 @@
 module Main where
 import Parsing
 import System.FilePath.Posix
+import Data.Char hiding(isControl)
+import Numeric
 import Control.Applicative hiding(many)
 import Text.Read(readMaybe)
 
@@ -17,7 +19,7 @@ data JsonValue = JsonNull
 
 jsonString :: Parser JsonValue
 jsonString = do token $ char '"'
-                x <- many $ sat (/='"')
+                x <- stringLiteral
                 token $ char '"'
                 return (JsonString x)
 
@@ -97,10 +99,13 @@ doubleLiteral :: Parser (Maybe Double)
 doubleLiteral =
   doubleFromParts
     <$> (minus <|> pure 1)
-    <*> (readMaybe <$> digits)
+    <*> (readMaybe <$> validDigits)
     <*> ((readMaybe <$> (('0':) <$> ((:) <$> char '.' <*> digits))) <|> pure (Just 0))
     <*> ((e *> ((*) <$> (plus <|> minus <|> pure 1) <*> (read <$> digits))) <|> pure 0)
   where
+    validDigits = (do x <- nonZeroDigit
+                      xs <- many digit
+                      return (x:xs)) <|> (string "0") <|> failure
     digits = many digit
     minus = (-1) <$ char '-'
     plus = 1 <$ char '+'
@@ -169,6 +174,32 @@ parseJson :: Show a => FilePath -> Parser a -> IO a
 parseJson fileName parser = do inp <- readFile fileName
                                return (fst $ head $ parse parser inp)
 
+--source: https://abhinavsarkar.net/posts/json-parsing-from-scratch-in-haskell/#jnumber-parser
+showJSONString :: String -> String
+showJSONString s = "\"" ++ concatMap showJSONChar s ++ "\""
+
+--source: https://abhinavsarkar.net/posts/json-parsing-from-scratch-in-haskell/#jnumber-parser
+isControl :: Char -> Bool
+isControl c = c `elem` ['\0' .. '\31']
+
+--source: https://abhinavsarkar.net/posts/json-parsing-from-scratch-in-haskell/#jnumber-parser
+showJSONChar :: Char -> String
+showJSONChar c = case c of
+  '\'' -> "'"
+  '\"' -> "\\\""
+  '\\' -> "\\\\"
+  '\b' -> "\\b"
+  '\f' -> "\\f"
+  '\n' -> "\\n"
+  '\r' -> "\\r"
+  '\t' -> "\\t"
+  _ | isControl c -> "\\u" ++ showJSONNonASCIIChar c
+  _ -> [c]
+  where
+    showJSONNonASCIIChar c =
+      let a = "0000" ++ showHex (ord c) "" in drop (length a - 4) a
+
+
 printJsonNull :: Int -> String
 printJsonNull tabs = "null"
 
@@ -193,7 +224,7 @@ printJsonVal :: JsonValue -> Int -> String
 printJsonVal (JsonNull) tabs = printJsonNull tabs   
 printJsonVal (JsonBool t) tabs = printJsonBool t tabs   
 printJsonVal (JsonNumber x) tabs = printJsonNumber x tabs  
-printJsonVal (JsonString x) tabs = "\"" ++ x ++ "\""
+printJsonVal (JsonString x) tabs = showJSONString x
 printJsonVal (JsonArray x) tabs = "[\n" ++ (printJsonArray x (tabs+1)) ++ (replicate (tabs+1) '\t') ++ "]"  
 printJsonVal (JsonObject x) tabs = "{\n" ++ (printJsonObject x (tabs+1)) ++ (replicate tabs '\t') ++ "}" 
 

@@ -4,6 +4,7 @@
 
 module Parsing where
  
+import Numeric
 import Data.Char
 import Control.Monad
 import Control.Applicative hiding (many)
@@ -217,8 +218,14 @@ escapeChar = ('"'  <$ string "\\\"") +++
              ('\f' <$ string "\\f") +++
              ('\r' <$ string "\\r") +++
              ('\t' <$ string "\\t") +++
-             ('\n' <$ string "\\n") 
+             ('\n' <$ string "\\n") +++
+             (string "\\u" *> escapeUnicode)
+
              
 stringLiteral :: Parser String
-stringLiteral = do x <- (many ((sat (((&&) <$> (/= '"') <*> (/= '\\')))) +++ escapeChar))
+stringLiteral = do x <- (many ((sat (((&&) <$> (/= '"') <*> (/= '\\')))) <|> escapeChar))
                    return x
+
+-- | Parser for characters as unicode in input
+escapeUnicode :: Parser Char
+escapeUnicode = chr . fst . head . readHex <$> sequenceA (replicate 4 (sat isHexDigit))
