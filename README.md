@@ -6,9 +6,9 @@ Next targets are to build a website that allows users to parse and validate JSON
 
 ## Development goals
 
-- [x] Develop parser capable of parsing basic json data
-- [x] Add escaped character parsing
-- [ ] Add error reporting feature
+- [x] Parser can parse all types of valid JSON data
+- [ ] Parser reports errors
+- [ ] Parser recovers from errors 
 - [ ] Build server to listen to requests
 - [ ] Built website interface
 
